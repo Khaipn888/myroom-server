@@ -1,14 +1,18 @@
 const jwt = require("jsonwebtoken");
+const AppError = require("../utils/AppError"); // điều chỉnh đường dẫn nếu cần
 
 module.exports = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token" });
+  const token = req.cookies?.accessToken;
+
+  if (!token) {
+    return next(new AppError("Không tìm thấy token trong cookie", 401));
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    req.user = decoded;
+    req.user = decoded; // gán user vào req để sử dụng ở controller
     next();
-  } catch {
-    return res.status(403).json({ message: "Invalid or expired token" });
+  } catch (err) {
+    return next(new AppError("Token không hợp lệ hoặc đã hết hạn", 403));
   }
 };

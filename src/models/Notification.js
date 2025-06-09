@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   type: String, // ex: 'newMessage', 'postStatus', etc.
   content: String,
   isRead: { type: Boolean, default: false }

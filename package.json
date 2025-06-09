@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "prod": "cross-env NODE_ENV=production node server.js",
-    "dev": "cross-env NODE_ENV=development node server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
     "staging": "cross-env NODE_ENV=staging node server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
@@ -16,20 +16,28 @@
   "license": "ISC",
   "packageManager": "pnpm@10.8.0",
   "dependencies": {
+    "@elastic/elasticsearch": "8",
+    "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "dotenv-flow": "^4.1.0",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "nanoid": "^5.1.5",
+    "nodemailer": "^7.0.3",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
+    "nodemon": "^3.1.9",
     "prettier": "^3.5.3"
   }
 }

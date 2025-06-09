@@ -1,27 +1,32 @@
 // index.js
-const dotenv = require('dotenv-flow');
+const dotenv = require("dotenv-flow");
 dotenv.config(); // tự động dùng .env.[NODE_ENV]
 
-const express = require('express');
-const mongoose = require('mongoose');
-const app = require('./src/app');
+const http = require('http');
+const mongoose = require("mongoose");
+const app = require("./src/app");
+const { initSocket } = require("./src/socket/socket");
 
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
-      useUnifiedTopology: true
+      useUnifiedTopology: true,
     });
     console.log(`✅ Connected to MongoDB - ${process.env.NODE_ENV}`);
   } catch (err) {
-    console.error('❌ DB connection failed:', err);
+    console.error("❌ DB connection failed:", err);
     process.exit(1);
   }
 };
 
 connectDB();
 
+const server = http.createServer(app);
+
+initSocket(server);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT} - ${process.env.NODE_ENV}`);
 });

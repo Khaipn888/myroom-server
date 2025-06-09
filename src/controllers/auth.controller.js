@@ -1,77 +1,104 @@
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const {
-  generateAccessToken,
-  generateRefreshToken
-} = require("../utils/generateToken");
+const authService = require("../services/auth.service");
+const AppError = require("../utils/AppError");
+const ResponseFormatter = require("../utils/ResponseFormatter");
+const BaseController = require("../utils/BaseController");
 
-exports.login = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user || !user.password) return res.status(400).json({ message: "Invalid credentials" });
+const setAuthCookies = (res, accessToken, refreshToken) => {
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 15 * 60 * 1000, // 15 phút
+  });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: "Invalid credentials" });
-
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // lưu refreshToken vào db
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.json({
-      user,
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+  });
 };
 
-exports.refreshToken = async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) return res.status(401).json({ message: "No refresh token" });
+exports.login = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { user, accessToken, refreshToken } = await authService.loginUser(req.body);
 
-  try {
-    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(payload.id);
-    if (!user || user.refreshToken !== refreshToken) {
-      return res.status(403).json({ message: "Invalid refresh token" });
+    if (!user) {
+      throw new AppError("User not found", 404);
     }
 
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
+    setAuthCookies(res, accessToken, refreshToken);
+    res.json(ResponseFormatter.success(user, "Login successfully"));
+  });
 
-    user.refreshToken = newRefreshToken;
-    await user.save();
+exports.register = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { user, accessToken, refreshToken } = await authService.registerUser(req.body);
 
-    res.json({
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-    });
-  } catch {
-    return res.status(403).json({ message: "Token expired or invalid" });
-  }
+    if (!user) {
+      throw new AppError("Register failed", 400);
+    }
+
+    setAuthCookies(res, accessToken, refreshToken);
+    res.status(201).json(ResponseFormatter.success(user, "Register successfully"));
+  });
+
+exports.me = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const user = await authService.getUserProfile(req.user.id);
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    res.json(ResponseFormatter.success(user, "Fetch user profile successfully"));
+  });
+
+exports.refreshToken = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const token = req.cookies?.refreshToken;
+    const { newAccessToken, newRefreshToken } = await authService.refreshTokenPair(token);
+
+    setAuthCookies(res, newAccessToken, newRefreshToken);
+    res.json(ResponseFormatter.success());
+  });
+
+exports.logout = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const token = req.cookies?.refreshToken;
+    await authService.logoutUser(token);
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.json(ResponseFormatter.success());
+  });
+
+exports.loginWithGoogle = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { token } = req.body;
+
+    if (!token) {
+      throw new AppError("Thiếu token từ Google", 400);
+    }
+
+    const { user, accessToken, refreshToken } = await authService.loginWithGoogle(token);
+
+    setAuthCookies(res, accessToken, refreshToken);
+    res.json(ResponseFormatter.success(user, "Login with Google successfully"));
+  });
+
+exports.sendOtp = (req, res) => {
+  BaseController.handle(req, res, async () => {
+    const { email } = req.body;
+    const result = await authService.sendOtp({ email });
+    res.json(ResponseFormatter.success(result, "Đã gửi OTP"));
+  });
 };
 
-exports.logout = async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) return res.status(400).json({ message: "No token" });
-
-  try {
-    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(payload.id);
-    if (!user) return res.status(400).json({ message: "User not found" });
-
-    user.refreshToken = null;
-    await user.save();
-
-    res.json({ message: "Logout successful" });
-  } catch {
-    res.status(403).json({ message: "Invalid token" });
-  }
+exports.verifyOtp = (req, res) => {
+  BaseController.handle(req, res, async () => {
+    const { email, otp } = req.body;
+    const result = await authService.verifyOtp({ email, otp });
+    res.json(ResponseFormatter.success(result, "OTP đã xác thực thành công"));
+  });
 };
