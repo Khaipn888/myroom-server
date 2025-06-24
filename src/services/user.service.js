@@ -262,7 +262,6 @@ exports.getAllMyPosts = async (
 
   // === 5. Query MongoDB để lấy thêm các trường mong muốn ===
   //    Lấy các trường: contactName, contactPhone, contactZalo, media, location, userId
-  //    Có thể mở rộng thêm nếu bạn cần thêm utilities, description, v.v.
   const postsFromDb = await Post.find(
     { _id: { $in: hitIds } },
     {
@@ -404,12 +403,19 @@ exports.updateMe = async (userId, payload) => {
   return updated;
 };
 
-exports.getAllPostsByAdmin = async (
-  { status = [], keyword = "", type = [], page = 1, limit = 10, sort = "createdAt:desc" } = {}
-) => {
-  // === 1. Build phần must-clause cho Elasticsearch ===
+exports.getAllPostsByAdmin = async ({
+  status = [],
+  keyword = "",
+  type = [],
+  page = 1,
+  limit = 10,
+  sort = "createdAt:desc",
+} = {}) => {
+  // Build phần must-clause cho Elasticsearch ===
   const must = [];
-
+  const must_not = [
+    { term: { status: "draft" } },
+  ];
   if (typeof status === "string") {
     const trimmed = status.trim();
     if (trimmed === "") {
@@ -459,7 +465,7 @@ exports.getAllPostsByAdmin = async (
     from: (page - 1) * limit,
     size: limit,
     body: {
-      query: { bool: { must } },
+      query: { bool: { must, must_not } },
       sort: [{ [sortField]: { order: sortOrder } }],
     },
   });

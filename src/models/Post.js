@@ -25,10 +25,10 @@ const postSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ["pending", "actived", "reject", "disabled"],
+      enum: ["pending", "actived", "reject", "disabled", "draft"],
       default: "pending",
     },
-    reports: {
+    numberOfReport: {
       type: Number,
       default: 0,
     },

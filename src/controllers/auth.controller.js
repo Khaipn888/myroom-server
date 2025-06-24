@@ -87,10 +87,18 @@ exports.loginWithGoogle = (req, res) =>
     res.json(ResponseFormatter.success(user, "Login with Google successfully"));
   });
 
-exports.sendOtp = (req, res) => {
+exports.sendOtpVerifyAccount = (req, res) => {
   BaseController.handle(req, res, async () => {
     const { email } = req.body;
     const result = await authService.sendOtp({ email });
+    res.json(ResponseFormatter.success(result, "Đã gửi OTP"));
+  });
+};
+
+exports.sendOtpForgotPassword = (req, res) => {
+  BaseController.handle(req, res, async () => {
+    const { email } = req.body;
+    const result = await authService.sendOtpForgotPassword({ email });
     res.json(ResponseFormatter.success(result, "Đã gửi OTP"));
   });
 };
@@ -100,5 +108,22 @@ exports.verifyOtp = (req, res) => {
     const { email, otp } = req.body;
     const result = await authService.verifyOtp({ email, otp });
     res.json(ResponseFormatter.success(result, "OTP đã xác thực thành công"));
+  });
+};
+
+exports.resetPassword = (req, res) => {
+  BaseController.handle(req, res, async () => {
+    const { email, otp, newPassword, confirmPassword } = req.body;
+    const result = await authService.resetPassword({ email, otp, newPassword, confirmPassword });
+    res.json(ResponseFormatter.success(result, "Reset mật khẩu thành công"));
+  });
+};
+
+exports.changePassword = (req, res) => {
+  BaseController.handle(req, res, async () => {
+    const { newPassword, currentPassword } = req.body;
+    const userId = req.user.id;
+    const result = await authService.changePassword({ userId, newPassword, currentPassword });
+    res.json(ResponseFormatter.success(result, "Đổi mật khẩu thành công"));
   });
 };

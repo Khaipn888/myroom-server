@@ -1,5 +1,5 @@
 const Post = require("../models/Post");
-const User = require("../models/User");   
+const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const elasticClient = require("../utils/elasticsearchClient");
 
@@ -35,8 +35,47 @@ exports.create = async (data) => {
   return saved;
 };
 
-// Giả sử bạn đã khởi tạo elasticClient (ví dụ: const elasticClient = new Elasticsearch.Client(...))
-// Và model mongoose Post đã được import sẵn.
+exports.update = async (userId, id, data) => {
+  // 1. Cập nhật document trong MongoDB
+  const updated = await Post.findByIdAndUpdate(
+    id,
+    { ...data, status: "pending" },
+    {
+      new: true, // trả về document sau khi cập nhật
+      runValidators: true, // chạy schema validation
+    }
+  );
+  if (!updated || updated.userId.toString() !== userId) {
+    throw new AppError(404, "Post not found");
+  }
+  // 2. Đồng bộ lên Elasticsearch (chỉ cập nhật các trường thay đổi)
+  try {
+    await elasticClient.update({
+      index: "posts",
+      id: updated._id.toString(),
+      doc: {
+        userId: updated.userId.toString(),
+        title: updated.title,
+        description: updated.description,
+        address: updated.address,
+        price: updated.price,
+        area: updated.area,
+        type: updated.type,
+        createdAt: updated.createdAt,
+        utilities: updated.utilities,
+        peoplePerRoom: updated.peoplePerRoom,
+        services: updated.services,
+        status: updated.status,
+      },
+      retry_on_conflict: 3, // tranh xung đột version
+    });
+  } catch (err) {
+    console.error("❌ Elasticsearch sync failed:", err);
+    // Không throw để không block API
+  }
+
+  return updated;
+};
 
 exports.searchPostsES = async (query) => {
   // Hàm buildQuery sẽ nhận thêm một đối tượng 'options' chứa các cờ
@@ -427,6 +466,39 @@ exports.getDetailPost = async (postId) => {
   return detail;
 };
 
+exports.getMyDetailPost = async (userId, postId) => {
+  // 1. Lấy post từ MongoDB
+  const post = await Post.findById(postId).lean();
+
+  if (!post) {
+    throw new AppError("Không tìm thấy bài đăng tương ứng", 404);
+  }
+  if (post.userId.toString() !== userId) {
+    throw new AppError("Bài đăng không tồn tại", 404);
+  }
+  // 3. Build object trả về
+  const detail = {
+    id: postId,
+    type: post.type,
+    title: post.title,
+    description: post.description,
+    address: post.address,
+    price: post.price,
+    area: post.area,
+    utilities: post.utilities,
+    services: post.services,
+    media: post.media,
+    peoplePerRoom: post.peoplePerRoom,
+    location: post.location,
+    contactName: post.contactName,
+    contactPhone: post.contactPhone,
+    contactZalo: post.contactZalo,
+    createdAt: post.createdAt?.toString(),
+  };
+
+  return detail;
+};
+
 exports.getSimilarPosts = async (postId, size = 5) => {
   // 1. Lấy bài đăng hiện tại từ Mongo
   const post = await Post.findById(postId).lean();
@@ -452,8 +524,8 @@ exports.getSimilarPosts = async (postId, size = 5) => {
   // nếu bạn có trường province riêng, dùng luôn post.province
   const province = post.province || address;
   const phrases = province
-     .split(/[\s,]+/)  
-    .map((s) => s.trim())  
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
   const shouldClauses = phrases.map((word) => ({
@@ -608,20 +680,12 @@ exports.updateStatus = async (postId, newStatus) => {
 
   // 2. Nếu chuyển từ không phải "actived" sang "actived" => tăng numberOfPost
   if (oldStatus !== "actived" && newStatus === "actived") {
-    await User.findByIdAndUpdate(
-      userId,
-      { $inc: { numberOfPost: 1 } },
-      { new: true }
-    );
+    await User.findByIdAndUpdate(userId, { $inc: { numberOfPost: 1 } }, { new: true });
   }
 
   // 3. Nếu chuyển từ "actived" sang bất kỳ status khác => giảm numberOfPost
   if (oldStatus === "actived" && newStatus !== "actived") {
-    await User.findByIdAndUpdate(
-      userId,
-      { $inc: { numberOfPost: -1 } },
-      { new: true }
-    );
+    await User.findByIdAndUpdate(userId, { $inc: { numberOfPost: -1 } }, { new: true });
   }
 
   // 4. Cập nhật status mới cho post trong MongoDB
@@ -643,4 +707,28 @@ exports.updateStatus = async (postId, newStatus) => {
   }
 
   return updatedPost;
+};
+
+exports.delete = async (userId, id) => {
+  // 1. Tìm post
+  const post = await Post.findById(id);
+  if (!post || post.userId.toString() !== userId) {
+    throw new AppError(404, "Post không tồn tại");
+  }
+
+  // 2. Xoá khỏi MongoDB
+  await Post.findByIdAndDelete(id);
+  // 3. Xoá khỏi Elasticsearch
+  try {
+    await elasticClient.delete({
+      index: "posts",
+      id: id.toString(),
+    });
+  } catch (err) {
+    console.error("❌ Elasticsearch delete failed:", err);
+    // Không throw để không block API
+  }
+
+  // 4. Trả về kết quả
+  return { id, message: "Xoá bài đăng thành công" };
 };

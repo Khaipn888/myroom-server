@@ -1,5 +1,7 @@
 // src/socket/socket.js
-const { Server } = require('socket.io');
+const { Server } = require("socket.io");
+const cookie = require("cookie");
+const jwt = require("jsonwebtoken");
 
 let ioInstance = null;
 
@@ -7,64 +9,91 @@ let ioInstance = null;
  * @param {http.Server} server  – HTTP server trả về từ http.createServer(app)
  */
 function initSocket(server) {
-  // Nếu chưa khởi tạo lần nào thì tạo mới
   if (!ioInstance) {
     ioInstance = new Server(server, {
       cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:3000',
-        methods: ['GET', 'POST'],
-        credentials: true
+        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true,
+      },
+    });
+
+    // Middleware xác thực lấy token từ cookie HttpOnly
+    ioInstance.use((socket, next) => {
+      try {
+        const cookies = socket.handshake.headers.cookie;
+        if (!cookies) {
+          console.log("Socket.IO: Không tìm thấy cookie");
+          socket.userId = null;
+          socket.userRole = null;
+          return next(new Error("Authentication error: No cookie"));
+        }
+
+        const parsedCookies = cookie.parse(cookies);
+        const token = parsedCookies.accessToken; // đổi tên cookie nếu bạn đặt khác
+
+        if (!token) {
+          console.log("Socket.IO: Không tìm thấy token trong cookie");
+          socket.userId = null;
+          socket.userRole = null;
+          return next(new Error("Authentication error: No token"));
+        }
+
+        const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+        console.log("Payload", payload);
+
+        socket.userId = payload.id || null;
+        socket.userRole = payload.role || null;
+
+        return next();
+      } catch (err) {
+        console.log("Socket.IO: Lỗi xác thực token", err.message);
+        socket.userId = null;
+        socket.userRole = null;
+        return next(new Error("Authentication error"));
       }
     });
 
-    // Middleware xác thực (nếu bạn dùng token/JWT). Nếu không cần, có thể bỏ khối này.
-    ioInstance.use((socket, next) => {
-      // Ví dụ: lấy token từ socket.handshake.auth
-      const token = socket.handshake.auth?.token;
-      // Nếu cần xác thực, bạn verify token ở đây rồi gán socket.userId = payload.userId
-      // Còn không cần, chỉ next() luôn
-      socket.userId = null;
-      return next();
-    });
+    ioInstance.on("connection", (socket) => {
+      console.log("⚡️ A client connected:", socket.id);
+      console.log(`➡️ UserId: ${socket.userId}, Role: ${socket.userRole}`);
 
-    // Lắng nghe event kết nối
-    ioInstance.on('connection', (socket) => {
-      console.log('⚡️ A client connected:', socket.id);
+      // Cho user join room riêng theo userId
+      if (socket.userId) {
+        socket.join(`user-${socket.userId}`);
+      }
 
-      // Ví dụ: client gửi id + role để server biết đây là ai
-      socket.on('identify', ({ userId, role }) => {
+      // Nếu là admin thì join room admin
+      if (socket.userRole === "admin") {
+        socket.join("admins");
+      }
+
+      // Client vẫn có thể gửi event identify nếu muốn (không bắt buộc)
+      socket.on("identify", ({ userId, role }) => {
         socket.userId = userId;
         socket.userRole = role;
 
-        // Cho user join room riêng: "user-<userId>"
-        if (userId) {
-          socket.join(`user-${userId}`);
-        }
+        if (userId) socket.join(`user-${userId}`);
+        if (role === "admin") socket.join("admins");
 
-        // Giả sử nếu role === 'admin' thì join room "admins"
-        if (role === 'admin') {
-          socket.join('admins');
-        }
-
-        console.log(`➡️ Socket ${socket.id} định danh userId=${userId}, role=${role}`);
+        console.log(`➡️ Socket ${socket.id} định danh lại userId=${userId}, role=${role}`);
       });
 
-      // Xử lý khi client ngắt kết nối
-      socket.on('disconnect', () => {
-        console.log('❌ A client disconnected:', socket.id);
+      socket.on("disconnect", () => {
+        console.log("❌ A client disconnected:", socket.id);
       });
     });
   }
-
+  console.log("Socket đã được khởi tạo thành công!");
   return ioInstance;
 }
 
 /**
- * @returns {Server}  instance của Socket.IO (nếu đã init)
+ * @returns {Server} instance của Socket.IO (nếu đã init)
  */
 function getIO() {
   if (!ioInstance) {
-    throw new Error('Socket.IO chưa được khởi tạo! Hãy gọi initSocket(server) trước.');
+    throw new Error("Socket.IO chưa được khởi tạo! Hãy gọi initSocket(server) trước.");
   }
   return ioInstance;
 }

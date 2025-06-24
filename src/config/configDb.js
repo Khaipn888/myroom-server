@@ -2,10 +2,7 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/nha-tro', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/nha-tro');
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
     process.exit(1);

@@ -46,6 +46,50 @@ exports.create = (req, res) =>
     res.status(201).json(ResponseFormatter.success(post, "Đăng tin thành công"));
   });
 
+exports.saveDraft = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const user = req.user;
+    const {
+      type,
+      title,
+      price,
+      area,
+      address,
+      location,
+      media = [],
+      peoplePerRoom,
+      utilities = [],
+      description = "",
+      services,
+      contactPhone,
+      contactZalo,
+    } = req.body;
+
+    if (!type || !title || !price || !area || !address || !location || !contactPhone) {
+      throw new AppError("Thiếu thông tin bắt buộc", 400);
+    }
+
+    const post = await postService.create({
+      userId: user.id,
+      type,
+      title,
+      price,
+      area,
+      address,
+      location,
+      media,
+      peoplePerRoom,
+      utilities,
+      description,
+      services,
+      contactPhone,
+      contactZalo,
+      status: "draft",
+    });
+
+    res.status(201).json(ResponseFormatter.success(post, "Đăng tin thành công"));
+  });
+
 exports.searchES = (req, res) =>
   BaseController.handle(req, res, async () => {
     const result = await postService.searchPostsES(req.query);
@@ -71,6 +115,24 @@ exports.getDetailPost = (req, res) =>
       throw new AppError("Post ID is required", 400);
     }
     const post = await postService.getDetailPost(postId);
+
+    if (!post) {
+      // Nếu không tìm thấy post nào
+      return res.json(ResponseFormatter.success(null, "Post not found"));
+    }
+
+    // Trả về chi tiết post
+    return res.json(ResponseFormatter.success(post, "Post detail"));
+  });
+
+exports.getMyDetailPost = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const postId = req.params.id;
+    const userId = req.user.id;
+    if (!postId) {
+      throw new AppError("Post ID is required", 400);
+    }
+    const post = await postService.getMyDetailPost(userId, postId);
 
     if (!post) {
       // Nếu không tìm thấy post nào
@@ -107,4 +169,36 @@ exports.updateStatus = (req, res) =>
     const updatedPost = await postService.updateStatus(postId, newStatus);
 
     return res.json(ResponseFormatter.success(updatedPost, "Cập nhật trạng thái thành công"));
+  });
+
+exports.deletePost = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!id) {
+      throw new AppError("Thiếu ID bài đăng", 400);
+    }
+
+    // Gọi service để xóa
+    const result = await postService.delete(userId, id);
+    // Trả về response
+    res.status(200).json(ResponseFormatter.success(result, "Xóa bài đăng thành công"));
+  });
+
+exports.updatePost = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const data = req.body;
+
+    if (!id) {
+      throw new AppError("Thiếu ID bài đăng", 400);
+    }
+
+    // Gọi service để cập nhật và chuyển status về pending
+    const updated = await postService.update(userId, id, data);
+
+    // Trả về response
+    res.status(200).json(ResponseFormatter.success(updated, "Cập nhật bài đăng thành công"));
   });
