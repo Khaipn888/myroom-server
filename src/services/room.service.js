@@ -2,6 +2,8 @@ const HostelModel = require("../models/Hostel");
 const RoomModel = require("../models/Room");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
+const Notification = require("../models/Notification");
+const { getIO } = require("../socket/socket");
 
 exports.create = async ({ ownerId, name, price, area, hostelId }) => {
   if (!ownerId) {
@@ -102,8 +104,9 @@ exports.addMember = async (hostelId, roomId, name, code, phone, cccdFront, cccdB
     throw new AppError("Số điện thoại (phone) là bắt buộc và phải là chuỗi không rỗng", 400);
   }
 
+  let user;
   if (code) {
-    const user = await User.findOne({ code });
+    user = await User.findOne({ code });
     if (!user) throw new AppError("Mã thành viên không khớp với ai cả", 400);
   }
 
@@ -140,7 +143,29 @@ exports.addMember = async (hostelId, roomId, name, code, phone, cccdFront, cccdB
   hostel.memberCodes.push(code);
   await hostel.save();
 
-  // 7. Trả về room đã cập nhật
+  // 7. Tạo Notification và emit realtime cho user được add (nếu có user)
+  if (user) {
+    try {
+      const notification = await Notification.create({
+        receiverId: user._id,
+        type: "AM",
+        content: `Bạn đã được thêm vào phòng ${room.name}, nhà trọ ${hostel.name}.`,
+        isRead: false,
+        metadata: {
+          hostelId,
+          roomId,
+          memberName: newMember.name,
+        },
+      });
+
+      const io = getIO();
+      io.to(`user-${user._id.toString()}`).emit("notification", notification);
+    } catch (notifErr) {
+      console.error("❌ Tạo hoặc gửi Notification thất bại:", notifErr);
+    }
+  }
+
+  // 8. Trả về room đã cập nhật
   return room;
 };
 
@@ -213,7 +238,7 @@ exports.updateMember = async (
   return room;
 };
 
-exports.deleteMember = async (userId, { hostelId, roomId, memberId }) => {
+exports.deleteMember = async (userId, { hostelId, roomId, memberId, code }) => {
   // Validate IDs
   if (!hostelId) {
     throw new AppError("hostelId không hợp lệ hoặc bị thiếu", 400);
@@ -223,7 +248,13 @@ exports.deleteMember = async (userId, { hostelId, roomId, memberId }) => {
   }
 
   if (!memberId || typeof memberId !== "string" || !memberId.trim()) {
-    throw new AppError("memberCode là bắt buộc", 400);
+    throw new AppError("memberId là bắt buộc", 400);
+  }
+
+  let user;
+  if (code) {
+    user = await User.findOne({ code });
+    if (!user) throw new AppError("Mã thành viên không khớp với ai cả", 400);
   }
 
   // Tìm hostel
@@ -258,6 +289,23 @@ exports.deleteMember = async (userId, { hostelId, roomId, memberId }) => {
   if (hostel.totalMembers > 0) {
     hostel.totalMembers -= 1;
     await hostel.save();
+  }
+
+  // 7. Tạo Notification và emit realtime cho user được add (nếu có user)
+  if (user) {
+    try {
+      const notification = await Notification.create({
+        receiverId: user._id,
+        type: "DM",
+        content: `Bạn đã bị xoá khỏi phòng ${room.name}, nhà trọ ${hostel.name}.`,
+        isRead: false,
+      });
+
+      const io = getIO();
+      io.to(`user-${user._id.toString()}`).emit("notification", notification);
+    } catch (notifErr) {
+      console.error("❌ Tạo hoặc gửi Notification thất bại:", notifErr);
+    }
   }
 
   return room;

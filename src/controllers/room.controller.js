@@ -120,14 +120,14 @@ exports.updateMember = (req, res) =>
 exports.deleteMember = (req, res) =>
   BaseController.handle(req, res, async () => {
     const user = req.user;
-    const { hostelId, roomId } = req.query;
+    const { hostelId, roomId, code } = req.query;
     const memberId  = req.params.id;
 
     if (!memberId) {
       throw new AppError("memberId là bắt buộc", 400);
     }
 
-    await roomService.deleteMember(user.id, { hostelId, roomId, memberId });
+    await roomService.deleteMember(user.id, { hostelId, roomId, memberId, code });
 
     res.json(ResponseFormatter.success(null, "Xóa thành viên thành công"));
   });

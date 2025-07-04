@@ -56,28 +56,19 @@ function initSocket(server) {
 
     ioInstance.on("connection", (socket) => {
       console.log("⚡️ A client connected:", socket.id);
-      console.log(`➡️ UserId: ${socket.userId}, Role: ${socket.userRole}`);
-
       // Cho user join room riêng theo userId
       if (socket.userId) {
         socket.join(`user-${socket.userId}`);
+        console.log("join:  ", `user-${socket.userId}`);
       }
 
       // Nếu là admin thì join room admin
       if (socket.userRole === "admin") {
         socket.join("admins");
+        console.log("join:  admins");
       }
 
-      // Client vẫn có thể gửi event identify nếu muốn (không bắt buộc)
-      socket.on("identify", ({ userId, role }) => {
-        socket.userId = userId;
-        socket.userRole = role;
-
-        if (userId) socket.join(`user-${userId}`);
-        if (role === "admin") socket.join("admins");
-
-        console.log(`➡️ Socket ${socket.id} định danh lại userId=${userId}, role=${role}`);
-      });
+      console.log(`➡️ SocketId ${socket.id}, userId=${socket.userId}, role=${socket.userRole}`);
 
       socket.on("disconnect", () => {
         console.log("❌ A client disconnected:", socket.id);

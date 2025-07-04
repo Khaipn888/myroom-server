@@ -1,5 +1,7 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
+const { getIO } = require("../socket/socket");
 const AppError = require("../utils/AppError");
 const elasticClient = require("../utils/elasticsearchClient");
 
@@ -32,6 +34,21 @@ exports.create = async (data) => {
     // Không throw để không ảnh hưởng đến API
   }
 
+  try {
+    const admin = await User.find({ role: "admin" });
+    const notification = await Notification.create({
+      receiverId: admin._id,
+      type: "CP",
+      content: `Có yêu cầu duyệt tin mới: ${saved.title}`,
+      isRead: false,
+      metadata: { postId: saved._id },
+    });
+
+    const io = getIO();
+    io.to("admins").emit("notification", notification);
+  } catch (err) {
+    console.error("❌ Tạo hoặc gửi Notification thất bại:", err);
+  }
   return saved;
 };
 
@@ -72,6 +89,22 @@ exports.update = async (userId, id, data) => {
   } catch (err) {
     console.error("❌ Elasticsearch sync failed:", err);
     // Không throw để không block API
+  }
+
+  try {
+    const admin = await User.find({ role: "admin" });
+    const notification = await Notification.create({
+      receiverId: admin._id,
+      type: "UD",
+      content: `Tin đã được sửa lại: ${updated.title}`,
+      isRead: false,
+      metadata: { postId: updated._id },
+    });
+
+    const io = getIO();
+    io.to("admins").emit("notification", notification);
+  } catch (err) {
+    console.error("❌ Tạo hoặc gửi Notification thất bại:", err);
   }
 
   return updated;
@@ -665,6 +698,9 @@ exports.getSimilarPosts = async (postId, size = 5) => {
 };
 
 exports.updateStatus = async (postId, newStatus) => {
+  let typeNoti;
+  let contentNoti;
+
   if (!newStatus) {
     throw new AppError("Vui lòng cung cấp status mới", 400);
   }
@@ -704,6 +740,36 @@ exports.updateStatus = async (postId, newStatus) => {
   } catch (esErr) {
     console.error("❌ Lỗi khi cập nhật Elasticsearch:", esErr);
     // Không throw tiếp để không làm gián đoạn API
+  }
+
+  if (newStatus === "actived") {
+    typeNoti = "AC";
+    contentNoti = "Tin của bạn đã được duyệt";
+  }
+
+  if (newStatus === "reject") {
+    typeNoti = "RJ";
+    contentNoti = "Tin của bạn không được duyệt";
+  }
+
+  if (newStatus === "disabled") {
+    typeNoti = "DI";
+    contentNoti = "Tin của bạn đã bị vô hiệu hoá";
+  }
+
+  try {
+    const notification = await Notification.create({
+      receiverId: userId,
+      type: typeNoti,
+      content: contentNoti,
+      isRead: false,
+      metadata: { postId: updatedPost._id },
+    });
+
+    const io = getIO();
+    io.to(`user-${userId.toString()}`).emit("notification", notification);
+  } catch (err) {
+    console.error("❌ Tạo hoặc gửi Notification thất bại:", err);
   }
 
   return updatedPost;
