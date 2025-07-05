@@ -1,6 +1,5 @@
 // scripts/reindex-posts.js
-const dotenv = require('dotenv-flow');
-dotenv.config();   
+require("dotenv").config();
 
 const mongoose = require("mongoose");
 const { Client } = require("@elastic/elasticsearch");

@@ -1,6 +1,4 @@
-// index.js
-const dotenv = require("dotenv-flow");
-dotenv.config(); // tự động dùng .env.[NODE_ENV]
+require("dotenv").config();
 
 const http = require('http');
 const mongoose = require("mongoose");
