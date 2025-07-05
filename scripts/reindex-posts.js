@@ -8,7 +8,10 @@ const { ensurePostsIndex } = require("../src/utils/ensurePostsIndex");
 
 // Khởi tạo client với node URL
 const elasticClient = new Client({
-  node: process.env.ELASTICSEARCH_NODE || "http://localhost:9200"
+  node: process.env.ELASTICSEARCH_NODE || "http://localhost:9200",
+  auth: {
+    apiKey: process.env.ELASTICSEARCH_API_KEY,
+  },
 });
 
 ensurePostsIndex(elasticClient).catch((err) => {
@@ -18,7 +21,10 @@ ensurePostsIndex(elasticClient).catch((err) => {
 
 async function reindex() {
   // Kết nối MongoDB
-  await mongoose.connect(process.env.MONGO_URI || "mongodb+srv://khaipn:khaipn888@cluster0.mzdclye.mongodb.net/my-room?retryWrites=true&w=majority&appName=Cluster0");
+  await mongoose.connect(
+    process.env.MONGO_URI ||
+      "mongodb+srv://khaipn:khaipn888@cluster0.mzdclye.mongodb.net/my-room?retryWrites=true&w=majority&appName=Cluster0"
+  );
 
   const posts = await Post.find({});
   for (const doc of posts) {
@@ -26,18 +32,18 @@ async function reindex() {
       index: "posts",
       id: doc._id.toString(),
       document: {
-        userId:         doc.userId.toString(),
-        title:          doc.title,
-        address:        doc.address,
-        description:    doc.description,
-        price:          doc.price,
-        area:           doc.area,
-        type:           doc.type,
-        createdAt:      doc.createdAt,
-        utilities:      doc.utilities,
-        peoplePerRoom:  doc.peoplePerRoom,
-        services:       doc.services,
-        status:         doc.status,
+        userId: doc.userId.toString(),
+        title: doc.title,
+        address: doc.address,
+        description: doc.description,
+        price: doc.price,
+        area: doc.area,
+        type: doc.type,
+        createdAt: doc.createdAt,
+        utilities: doc.utilities,
+        peoplePerRoom: doc.peoplePerRoom,
+        services: doc.services,
+        status: doc.status,
       },
     });
   }
@@ -46,7 +52,7 @@ async function reindex() {
   process.exit(0);
 }
 
-reindex().catch(err => {
+reindex().catch((err) => {
   console.error("❌ Lỗi khi reindex:", err);
   process.exit(1);
 });

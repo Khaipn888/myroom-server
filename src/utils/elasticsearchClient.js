@@ -3,10 +3,9 @@ const { ensurePostsIndex } = require("./ensurePostsIndex");
 
 const elasticClient = new Client({
   node: process.env.ELASTICSEARCH_NODE || "http://localhost:9200",
-  // auth: {
-  //   username: process.env.ELASTICSEARCH_USERNAME || "elastic",
-  //   password: process.env.ELASTICSEARCH_PASSWORD || "changeme",
-  // },
+  auth: {
+    apiKey: process.env.ELASTICSEARCH_API_KEY,
+  },
 });
 ensurePostsIndex(elasticClient).catch((err) => {
   console.error("❌ Lỗi khi đảm bảo index 'posts':", err);
