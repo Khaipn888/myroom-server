@@ -90,7 +90,7 @@ exports.loginWithGoogle = (req, res) =>
 exports.sendOtpVerifyAccount = (req, res) => {
   BaseController.handle(req, res, async () => {
     const { email } = req.body;
-    const result = await authService.sendOtp({ email });
+    const result = await authService.sendOtpVerifyAccount({ email });
     res.json(ResponseFormatter.success(result, "Đã gửi OTP"));
   });
 };
