@@ -19,5 +19,9 @@ router.get(
   checkAdmin,
   userController.getPostSearchSuggestionsForAdmin
 );
+router.get("/get-all-users", auth, checkAdmin, userController.getAllUsersByAdmin);
+router.get("/get-suggest-users", auth, checkAdmin, userController.suggestUserByKeyword);
+router.post("/lock", auth, checkAdmin, userController.lockUser);
+router.post("/unlock", auth, checkAdmin, userController.unlockUser);
 
 module.exports = router;

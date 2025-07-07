@@ -131,3 +131,49 @@ exports.getPostSearchSuggestionsForAdmin = (req, res) =>
     res.json(ResponseFormatter.success(suggestions, "Gợi ý tìm kiếm tin của bạn"));
   });
 
+exports.getAllUsersByAdmin = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { keyword = "", page = "1", limit = "10", sort = "createdAt:desc" } = req.query;
+    const statusArray = req.query["status[]"] || [];
+    const roleArray = req.query["roles[]"] || [];
+
+    const result = await userService.getAllUsersByAdmin({
+      status: statusArray,
+      roles: roleArray,
+      keyword: keyword.trim(),
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      sort: sort.trim(),
+    });
+
+    res.json(ResponseFormatter.success(result, "Lấy danh sách tất cả người dùng thành công"));
+  });
+
+exports.suggestUserByKeyword = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { keyword = "" } = req.query;
+    if (!keyword.trim()) {
+      return res.json(ResponseFormatter.success([], "Không có từ khoá"));
+    }
+    const result = await userService.suggestUserByKeyword(keyword.trim());
+    res.json(ResponseFormatter.success(result, "Gợi ý tìm kiếm thành công"));
+  });
+
+
+exports.lockUser = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { userId, reason } = req.body;
+    if (!userId) throw new AppError("Thiếu userId", 400);
+
+    const result = await userService.setUserStatus(userId, "locked", reason);
+    res.json(ResponseFormatter.success(result, "Khoá tài khoản thành công"));
+  });
+
+exports.unlockUser = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { userId } = req.body;
+    if (!userId) throw new AppError("Thiếu userId", 400);
+
+    const result = await userService.setUserStatus(userId, "actived");
+    res.json(ResponseFormatter.success(result, "Mở khoá tài khoản thành công"));
+  });

@@ -413,9 +413,7 @@ exports.getAllPostsByAdmin = async ({
 } = {}) => {
   // Build phần must-clause cho Elasticsearch ===
   const must = [];
-  const must_not = [
-    { term: { status: "draft" } },
-  ];
+  const must_not = [{ term: { status: "draft" } }];
   if (typeof status === "string") {
     const trimmed = status.trim();
     if (trimmed === "") {
@@ -599,4 +597,114 @@ exports.getPostSearchSuggestionsForAdmin = async ({ q }) => {
   }
 
   return suggestions;
+};
+
+exports.getAllUsersByAdmin = async ({
+  status = [],
+  roles = [],
+  keyword = "",
+  page = 1,
+  limit = 10,
+  sort = "createdAt:desc",
+}) => {
+  const query = {};
+
+  // Lọc theo trạng thái (status)
+  if (Array.isArray(status) && status.length > 0) {
+    query.status = { $in: status };
+  }
+
+  // Lọc theo loại (type)
+  if (Array.isArray(roles) && roles.length > 0) {
+    query.role = { $in: roles };
+  }
+  if (typeof status === "string") {
+    const trimmed = status.trim();
+    if (trimmed === "") {
+      status = [];
+    } else {
+      status = trimmed.includes(",") ? trimmed.split(",").map((s) => s.trim()) : [trimmed];
+    }
+    query.status = { $in: status };
+  }
+
+  if (typeof roles === "string") {
+    const trimmedRole = roles.trim();
+    if (trimmedRole === "") {
+      roles = [];
+    } else {
+      roles = trimmedRole.includes(",")
+        ? trimmedRole.split(",").map((s) => s.trim())
+        : [trimmedRole];
+    }
+    query.role = { $in: roles };
+  }
+  // Tìm kiếm theo keyword (có thể search name, email, phone)
+  if (keyword) {
+    query.$or = [
+      { name: { $regex: keyword, $options: "i" } },
+      { email: { $regex: keyword, $options: "i" } },
+      { phone: { $regex: keyword, $options: "i" } },
+    ];
+  }
+
+  let sortObj = { createdAt: -1 };
+  if (sort && sort.includes(":")) {
+    const [field, order] = sort.split(":");
+    sortObj = { [field]: order === "desc" ? -1 : 1 };
+  }
+
+  // Phân trang
+  const skip = (page - 1) * limit;
+
+  // Truy vấn DB
+  const [users, total] = await Promise.all([
+    User.find(query).sort(sortObj).skip(skip).limit(limit),
+    User.countDocuments(query),
+  ]);
+
+  return {
+    users,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+};
+
+exports.suggestUserByKeyword = async (keyword) => {
+  const query = {
+    $or: [
+      { name: { $regex: keyword, $options: "i" } },
+      { email: { $regex: keyword, $options: "i" } },
+      { phone: { $regex: keyword, $options: "i" } },
+    ],
+  };
+  // Giới hạn 10 kết quả, chỉ lấy trường cần thiết
+  const users = await User.find(query).limit(10).select("name email phone avatar _id");
+
+  // Có thể return gọn để UI dễ dùng
+  return users.map((u) => ({
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    avatar: u.avatar,
+  }));
+};
+
+exports.setUserStatus = async (userId, status, reason = "") => {
+  const user = await User.findById(userId);
+  if (!user) throw new AppError("Không tìm thấy người dùng", 404);
+
+  user.status = status;
+  if (status !== "actived") user.reason = reason;
+  await user.save();
+
+  return {
+    id: user._id,
+    status: user.status,
+    name: user.name,
+    email: user.email,
+  };
 };
