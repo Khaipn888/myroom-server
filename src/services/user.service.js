@@ -2,6 +2,11 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 const AppError = require("../utils/AppError");
 const elasticClient = require("../utils/elasticsearchClient");
+const HostelModel = require("../models/Hostel");
+const RoomModel = require("../models/Room");
+const Notification = require("../models/Notification");
+const InvoiceModel = require("../models/Invoice");
+const { getIO } = require("../socket/socket");
 /**
  * Lưu bài đăng vào danh sách đã lưu của người dùng
  */
@@ -706,5 +711,144 @@ exports.setUserStatus = async (userId, status, reason = "") => {
     status: user.status,
     name: user.name,
     email: user.email,
+  };
+};
+
+exports.leaveRoom = async (userId, { hostelId, roomId, memberId, code }) => {
+  // Validate IDs
+  if (!hostelId) {
+    throw new AppError("hostelId không hợp lệ hoặc bị thiếu", 400);
+  }
+  if (!roomId) {
+    throw new AppError("roomId không hợp lệ hoặc bị thiếu", 400);
+  }
+
+  if (!memberId || typeof memberId !== "string" || !memberId.trim()) {
+    throw new AppError("memberId là bắt buộc", 400);
+  }
+
+  let user;
+  if (code) {
+    user = await User.findOne({ code });
+    if (!user) throw new AppError("Mã thành viên không khớp với ai cả", 400);
+  }
+
+  // Tìm hostel
+  const hostel = await HostelModel.findById(hostelId);
+  if (!hostel) {
+    throw new AppError("Không tìm thấy Hostel tương ứng", 404);
+  }
+
+  // Tìm room
+  const room = await RoomModel.findById(roomId);
+  if (!room) {
+    throw new AppError("Không tìm thấy Room tương ứng", 404);
+  }
+  if (room.hostelId.toString() !== hostelId.toString()) {
+    throw new AppError("Room này không thuộc về Hostel đã chỉ định", 400);
+  }
+  if (user._id.toString() !== userId.toString()) throw new AppError("Bạn không có quyền", 403);
+
+  // Tìm index của member
+  const idx = (room.members || []).findIndex((m) => m._id.toString() === memberId.trim());
+  if (idx === -1) {
+    throw new AppError("Không tìm thấy thành viên với mã đã cho", 404);
+  }
+  const memberName = room.members[idx].name;
+  if (room.members[idx].code) {
+    hostel.memberCodes = (hostel.memberCodes || []).filter((c) => c !== room.members[idx].code);
+  }
+  // Xóa khỏi mảng members
+  room.members.splice(idx, 1);
+  await room.save();
+
+  // Giảm totalMembers của hostel đi 1 (nếu > 0)
+  if (hostel.totalMembers > 0) {
+    hostel.totalMembers -= 1;
+    await hostel.save();
+  }
+
+  const owner = await User.findById(room.ownerId);
+
+  if (owner) {
+    try {
+      const notification = await Notification.create({
+        receiverId: room.ownerId,
+        type: "UL",
+        content: `${memberName} đã rời khỏi phòng ${room.name}, nhà trọ ${hostel.name}.`,
+        isRead: false,
+      });
+
+      const io = getIO();
+      io.to(`user-${user._id.toString()}`).emit("notification", notification);
+    } catch (notifErr) {
+      console.error("❌ Tạo hoặc gửi Notification thất bại:", notifErr);
+    }
+  }
+
+  return room;
+};
+
+exports.sendNoti = async (userId, hostelId, type, content, month, year) => {
+  const user = await User.findById(userId);
+  if (!user) throw new AppError("Không tìm thấy người dùng", 404);
+
+  // Lấy tất cả phòng mà user là chủ
+  const rooms = await RoomModel.find({ hostelId, ownerId: userId }).lean();
+  if (!rooms || rooms.length === 0) return { countMember: 0 };
+
+  let memberCodes = [];
+
+  // Chốt số điện nước: gửi nếu phòng chưa có hóa đơn tháng này
+  if (type === "electric") {
+    for (let i = 0; i < rooms.length; i++) {
+      const roomId = rooms[i]._id;
+      const invoice = await InvoiceModel.findOne({ roomId, hostelId, year, month });
+      if (!invoice && Array.isArray(rooms[i].members)) {
+        memberCodes = memberCodes.concat(rooms[i].members.map((m) => m.code));
+      }
+    }
+  }
+  // Nộp tiền phòng: gửi nếu hóa đơn trạng thái chưa thanh toán
+  if (type === "rent") {
+    for (let i = 0; i < rooms.length; i++) {
+      const roomId = rooms[i]._id;
+      const invoice = await InvoiceModel.findOne({ roomId, hostelId, year, month });
+      if (invoice && invoice.paymentStatus === "not-pay") {
+        memberCodes = memberCodes.concat(rooms[i].members.map((m) => m.code));
+      }
+    }
+  }
+  // Xoá trùng memberCode
+  memberCodes = [...new Set(memberCodes)];
+
+  // Lấy danh sách user nhận thông báo từ memberCode
+  const members = await User.find({ code: { $in: memberCodes } });
+  if (!members.length) return { countMember: 0 };
+
+  const io = getIO();
+
+  // Gửi noti + socket từng user
+  let count = 0;
+  for (const mem of members) {
+    try {
+      const notification = await Notification.create({
+        receiverId: mem._id,
+        type: "IF",
+        content: `Thông báo từ chủ trọ: ${content}`,
+        isRead: false,
+        metadata: {
+          hostelId,
+        },
+      });
+      io.to(`user-${mem._id.toString()}`).emit("notification", notification);
+      count++;
+    } catch (notifErr) {
+      console.error("❌ Tạo hoặc gửi Notification thất bại:", notifErr);
+    }
+  }
+
+  return {
+    countMember: count,
   };
 };

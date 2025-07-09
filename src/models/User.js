@@ -23,14 +23,19 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    numberOfPostRented: {
+      type: Number,
+      default: 0,
+    },
+
     status: {
       type: String,
       enum: ["pending", "actived", "deactive", "locked"],
-      default: "pending"
+      default: "pending",
     },
     reason: {
       type: String,
-    }
+    },
   },
   { timestamps: true }
 );

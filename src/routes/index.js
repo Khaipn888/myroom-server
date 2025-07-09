@@ -9,6 +9,7 @@ const hostelRoutes = require("./hostel.routes");
 const roomRoutes = require("./room.routes");
 const invoiceRoutes = require("./invoice.routes");
 const notificationRoutes = require("./notification.routes");
+const commentRoutes = require("./comment.routes");
 
 // Gắn các route con
 router.use("/auth", authRoutes);
@@ -19,4 +20,5 @@ router.use("/hostel", hostelRoutes);
 router.use("/room", roomRoutes);
 router.use("/invoice", invoiceRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/comments", commentRoutes);
 module.exports = router;

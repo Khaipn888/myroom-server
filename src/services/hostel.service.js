@@ -10,6 +10,7 @@ exports.create = async ({
   totalRoom,
   emptyRoom,
   services = [],
+  deadline,
 }) => {
   // 1. Validation các trường bắt buộc
   if (!ownerId) {
@@ -51,12 +52,17 @@ exports.create = async ({
     totalRoom,
     emptyRoom,
     services,
+    deadline,
   });
 
   return newHostel;
 };
 
-exports.update = async (hostelId, ownerId, { name, address, floorCount, totalRoom, services }) => {
+exports.update = async (
+  hostelId,
+  ownerId,
+  { name, address, floorCount, totalRoom, services, deadline }
+) => {
   const existing = await HostelModel.findById(hostelId);
   if (!existing) {
     throw new AppError("Không tìm thấy Hostel", 404);
@@ -84,6 +90,12 @@ exports.update = async (hostelId, ownerId, { name, address, floorCount, totalRoo
       throw new AppError("Nếu cập nhật floorCount thì phải là số ≥ 0", 400);
     }
     updateObj.floorCount = floorCount;
+  }
+  if (deadline != null) {
+    if (typeof floorCount !== "number" || floorCount < 0) {
+      throw new AppError("Nếu cập nhật floorCount thì phải là số ≥ 0", 400);
+    }
+    updateObj.deadline = deadline;
   }
   if (totalRoom != null) {
     if (typeof totalRoom !== "number" || totalRoom < 0) {
@@ -165,9 +177,9 @@ exports.getHostelDetail = async (hostelId, userId, code) => {
   if (!isOwner && !isMember) {
     throw new AppError("Bạn không có quyền xem chi tiết Hostel này", 403);
   }
-  const rooms = await RoomModel.find({ hostelId }).select(
-    "name area price members electricityPrice waterPrice services bills"
-  ).lean();
+  const rooms = await RoomModel.find({ hostelId })
+    .select("name area price members electricityPrice waterPrice services bills rentDate")
+    .lean();
   const roomsWithPermissions = rooms.map((r) => {
     const memberHasCode = Array.isArray(r.members) && r.members.some((m) => m.code === code);
     return {

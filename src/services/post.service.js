@@ -697,7 +697,7 @@ exports.getSimilarPosts = async (postId, size = 5) => {
   return similarPosts;
 };
 
-exports.updateStatus = async (postId, newStatus) => {
+exports.updateStatus = async (postId, newStatus, reason = "") => {
   let typeNoti;
   let contentNoti;
 
@@ -726,6 +726,7 @@ exports.updateStatus = async (postId, newStatus) => {
 
   // 4. Cập nhật status mới cho post trong MongoDB
   post.status = newStatus;
+  post.reason = reason;
   const updatedPost = await post.save();
 
   // 5. Đồng bộ status mới lên Elasticsearch
@@ -735,6 +736,7 @@ exports.updateStatus = async (postId, newStatus) => {
       id: postId.toString(),
       doc: {
         status: newStatus,
+        reason: reason,
       },
     });
   } catch (esErr) {
@@ -797,4 +799,44 @@ exports.delete = async (userId, id) => {
 
   // 4. Trả về kết quả
   return { id, message: "Xoá bài đăng thành công" };
+};
+
+exports.markPostRented = async (userId, postId, newStatus) => {
+  if (!newStatus) {
+    throw new AppError("Vui lòng cung cấp status mới", 400);
+  }
+
+  const post = await Post.findById(postId);
+  if (!post) {
+    throw new AppError("Không tìm thấy bài đăng tương ứng", 404);
+  }
+
+  if (userId !== post.userId.toString()) {
+    throw new AppError("Bạn không có quyền", 403);
+  }
+  if (newStatus === "rented") {
+    await User.findByIdAndUpdate(userId, { $inc: { numberOfPostRented: 1 } }, { new: true });
+  }
+
+  if (newStatus === "actived") {
+    await User.findByIdAndUpdate(userId, { $inc: { numberOfPostRented: -1 } }, { new: true });
+  }
+
+  post.status = newStatus;
+  const updatedPost = await post.save();
+
+  // 5. Đồng bộ status mới lên Elasticsearch
+  try {
+    await elasticClient.update({
+      index: "posts",
+      id: postId.toString(),
+      doc: {
+        status: newStatus,
+      },
+    });
+  } catch (esErr) {
+    console.error("❌ Lỗi khi cập nhật Elasticsearch:", esErr);
+    // Không throw tiếp để không làm gián đoạn API
+  }
+  return updatedPost;
 };

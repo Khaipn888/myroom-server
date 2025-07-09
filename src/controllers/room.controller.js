@@ -6,9 +6,9 @@ const BaseController = require("../utils/BaseController");
 exports.create = (req, res) =>
   BaseController.handle(req, res, async () => {
     const user = req.user;
-    const { name, price, area, hostelId } = req.body;
+    const { name, price, area, hostelId, rentDate } = req.body;
 
-    if (!name || !price || !area) {
+    if (!name || !price || !area || !rentDate) {
       throw new AppError("Thiếu thông tin bắt buộc: name hoặc price hoặc area", 400);
     }
 
@@ -18,6 +18,7 @@ exports.create = (req, res) =>
       price,
       area,
       hostelId,
+      rentDate,
     });
 
     res.status(201).json(ResponseFormatter.success(room, "Tạo mới room thành công"));
@@ -27,15 +28,16 @@ exports.update = (req, res) =>
   BaseController.handle(req, res, async () => {
     const user = req.user;
     const roomId = req.params.id;
-    const { name, price, area } = req.body;
+    const { name, price, area, rentDate } = req.body;
 
-    if (!name || !price || !area) {
+    if (!name || !price || !area || !rentDate) {
       throw new AppError("Thiếu thông tin bắt buộc: name hoặc price hoặc area", 400);
     }
     const updated = await roomService.update(roomId, user.id, {
       name: name.trim(),
       price,
       area,
+      rentDate,
     });
     res.status(200).json(ResponseFormatter.success(updated, "Cập nhật room thành công"));
   });
@@ -121,7 +123,7 @@ exports.deleteMember = (req, res) =>
   BaseController.handle(req, res, async () => {
     const user = req.user;
     const { hostelId, roomId, code } = req.query;
-    const memberId  = req.params.id;
+    const memberId = req.params.id;
 
     if (!memberId) {
       throw new AppError("memberId là bắt buộc", 400);
