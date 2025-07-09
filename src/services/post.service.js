@@ -458,7 +458,7 @@ exports.getSearchSuggestions = async ({ q, province }) => {
 exports.getDetailPost = async (postId) => {
   // 1. Lấy post từ MongoDB
   const post = await Post.findById(postId)
-    .populate("userId", "name avatar email savedPosts")
+    .populate("userId", "name avatar email savedPosts numberOfPost")
     .lean();
 
   if (!post) {
