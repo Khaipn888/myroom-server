@@ -67,8 +67,16 @@ exports.logout = (req, res) =>
   BaseController.handle(req, res, async () => {
     const token = req.cookies?.refreshToken;
     await authService.logoutUser(token);
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    });
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    });
 
     res.json(ResponseFormatter.success());
   });
