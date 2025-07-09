@@ -474,6 +474,7 @@ exports.getDetailPost = async (postId) => {
       name: u.name,
       avatar: u.avatar,
       email: u.email,
+      numberOfPost: u.numberOfPost
     };
   }
 
