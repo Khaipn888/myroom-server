@@ -6,7 +6,7 @@ const BaseController = require("../utils/BaseController");
 exports.create = (req, res) =>
   BaseController.handle(req, res, async () => {
     const user = req.user;
-    const { name, address, floorCount, totalRoom, services = [] } = req.body;
+    const { name, address, floorCount, totalRoom, services = [], deadline } = req.body;
 
     if (!name || !address) {
       throw new AppError("Thiếu thông tin bắt buộc: name hoặc address", 400);
@@ -20,6 +20,7 @@ exports.create = (req, res) =>
       totalRoom,
       emptyRoom: totalRoom,
       services: Array.isArray(services) ? services : [],
+      deadline,
     });
 
     res.status(201).json(ResponseFormatter.success(hostel, "Tạo mới Hostel thành công"));
@@ -29,7 +30,7 @@ exports.update = (req, res) =>
   BaseController.handle(req, res, async () => {
     const user = req.user;
     const hostelId = req.params.id;
-    const { name, address, floorCount, totalRoom, services = [] } = req.body;
+    const { name, address, floorCount, totalRoom, services = [], deadline } = req.body;
 
     if (!hostelId) {
       throw new AppError("hostel ID là bắt buộc", 400);
@@ -56,6 +57,7 @@ exports.update = (req, res) =>
       floorCount,
       totalRoom,
       services: Array.isArray(services) ? services : undefined,
+      deadline,
     });
 
     res.status(200).json(ResponseFormatter.success(updated, "Cập nhật Hostel thành công"));

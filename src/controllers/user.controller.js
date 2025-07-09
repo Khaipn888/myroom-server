@@ -159,7 +159,6 @@ exports.suggestUserByKeyword = (req, res) =>
     res.json(ResponseFormatter.success(result, "Gợi ý tìm kiếm thành công"));
   });
 
-
 exports.lockUser = (req, res) =>
   BaseController.handle(req, res, async () => {
     const { userId, reason } = req.body;
@@ -176,4 +175,20 @@ exports.unlockUser = (req, res) =>
 
     const result = await userService.setUserStatus(userId, "actived");
     res.json(ResponseFormatter.success(result, "Mở khoá tài khoản thành công"));
+  });
+
+exports.leaveRoom = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { hostelId, roomId, code, memberId } = req.body;
+    const userId = req.user.id;
+    await userService.leaveRoom(userId, { hostelId, roomId, code, memberId });
+    res.json(ResponseFormatter.success("Rời khỏi phòng thành công"));
+  });
+
+  exports.sendNotification = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const userId = req.user.id;
+    const { hostelId, type, content, month, year } = req.body;
+    const result = await userService.sendNoti(userId, hostelId, type, content, month, year);
+    res.json(ResponseFormatter.success("Gửi thông báo thành công", result));
   });

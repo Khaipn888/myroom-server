@@ -8,6 +8,7 @@ router.post("/", auth, postController.create);
 router.post("/:id", auth, postController.updatePost);
 router.post("/save-draft", auth, postController.saveDraft);
 router.post("/censor/update-status", auth, checkAdmin, postController.updateStatus);
+router.post("/mark/rented", auth, postController.markPostRented);
 router.get("/search-es", postController.searchES);
 router.get("/suggestions", postController.suggestions);
 router.get("/:id", postController.getDetailPost);

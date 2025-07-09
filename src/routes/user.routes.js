@@ -10,6 +10,8 @@ router.get("/get-my-post-suggestions", auth, userController.getMyPostSearchSugge
 router.post("/save-post", auth, userController.savePost);
 router.post("/unsave-post", auth, userController.unsavePost);
 router.post("/update-me", auth, userController.updateMe);
+router.post("/leave-room", auth, userController.leaveRoom);
+router.post("/send-noti", auth, userController.sendNotification);
 
 //admin
 router.get("/get-all-posts", auth, checkAdmin, userController.getAllPostsByAdmin);

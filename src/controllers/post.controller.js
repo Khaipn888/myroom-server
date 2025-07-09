@@ -156,7 +156,7 @@ exports.getSimilarPosts = (req, res) =>
 
 exports.updateStatus = (req, res) =>
   BaseController.handle(req, res, async () => {
-    const { postId, newStatus } = req.body;
+    const { postId, newStatus, reason } = req.body;
 
     if (!postId) {
       throw new AppError("Post ID is required", 400);
@@ -166,7 +166,7 @@ exports.updateStatus = (req, res) =>
     }
 
     // Gọi service để cập nhật status (và điều chỉnh numberOfPost của user, đồng bộ ES)
-    const updatedPost = await postService.updateStatus(postId, newStatus);
+    const updatedPost = await postService.updateStatus(postId, newStatus, reason);
 
     return res.json(ResponseFormatter.success(updatedPost, "Cập nhật trạng thái thành công"));
   });
@@ -201,4 +201,21 @@ exports.updatePost = (req, res) =>
 
     // Trả về response
     res.status(200).json(ResponseFormatter.success(updated, "Cập nhật bài đăng thành công"));
+  });
+
+exports.markPostRented = (req, res) =>
+  BaseController.handle(req, res, async () => {
+    const { postId, newStatus } = req.body;
+    const userId = req.user.id;
+
+    if (!postId) {
+      throw new AppError("Post ID is required", 400);
+    }
+    if (!newStatus) {
+      throw new AppError("Vui lòng cung cấp status mới", 400);
+    }
+
+    const updatedPost = await postService.markPostRented(userId, postId, newStatus);
+
+    return res.json(ResponseFormatter.success(updatedPost, "Thành công"));
   });

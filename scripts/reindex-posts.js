@@ -44,6 +44,7 @@ async function reindex() {
         peoplePerRoom: doc.peoplePerRoom,
         services: doc.services,
         status: doc.status,
+        reason: doc.reason
       },
     });
   }

@@ -25,15 +25,20 @@ const postSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ["pending", "actived", "reject", "disabled", "draft"],
+      enum: ["pending", "actived", "reject", "disabled", "draft", "rented"],
       default: "pending",
     },
     numberOfReport: {
       type: Number,
       default: 0,
     },
+    numberOfComment: {
+      type: Number,
+      default: 0,
+    },
     contactPhone: { type: String, required: true },
     contactZalo: String,
+    reason: String,
   },
   { timestamps: true }
 );

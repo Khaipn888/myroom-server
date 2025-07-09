@@ -5,7 +5,7 @@ const AppError = require("../utils/AppError");
 const Notification = require("../models/Notification");
 const { getIO } = require("../socket/socket");
 
-exports.create = async ({ ownerId, name, price, area, hostelId }) => {
+exports.create = async ({ ownerId, name, price, area, hostelId, rentDate }) => {
   if (!ownerId) {
     throw new AppError("ownerId là bắt buộc", 400);
   }
@@ -22,6 +22,7 @@ exports.create = async ({ ownerId, name, price, area, hostelId }) => {
     price,
     area,
     hostelId,
+    rentDate
   });
 
   if (hostel.emptyRoom > 0) {
@@ -32,7 +33,7 @@ exports.create = async ({ ownerId, name, price, area, hostelId }) => {
   return newRoom;
 };
 
-exports.update = async (roomId, ownerId, { name, price, area }) => {
+exports.update = async (roomId, ownerId, { name, price, area, rentDate }) => {
   const existing = await RoomModel.findById(roomId);
   if (!existing) {
     throw new AppError("Không tìm thấy Hostel", 404);
@@ -49,6 +50,7 @@ exports.update = async (roomId, ownerId, { name, price, area }) => {
   }
   updateObj.price = price;
   updateObj.area = area;
+  updateObj.rentDate = rentDate;
 
   const updatedRoom = await RoomModel.findByIdAndUpdate(
     roomId,

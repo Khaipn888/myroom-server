@@ -24,6 +24,9 @@ exports.loginUser = async ({ email, password }) => {
   if (!user.isVerified) {
     throw new AppError("Tài khoản chưa được xác thực. Vui lòng nhập mã OTP từ email.", 401);
   }
+  if (user.status.toString() === "locked") {
+    throw new AppError(`Tài khoản của bạn đã bị khoá vì lý do: ${user.reason.toString()}`, 401);
+  }
   const match = await bcrypt.compare(password, user.password);
   if (!match) {
     throw new AppError("Tài khoản hoặc mật khẩu không đúng", 400);
@@ -136,7 +139,9 @@ exports.loginWithGoogle = async (googleToken) => {
 
   // 2. Tìm hoặc tạo người dùng
   let user = await User.findOne({ email });
-
+  if (user && user.status.toString() === "locked") {
+    throw new AppError(`Tài khoản của bạn đã bị khoá vì lý do: ${user.reason.toString()}`, 401);
+  }
   if (!user) {
     user = await User.create({
       email,

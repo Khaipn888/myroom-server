@@ -9,23 +9,25 @@ const roomSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    members: [{
-      name: String,
-      code: String,
-      phone: String,
-      cccdFront: String,
-      cccdBack: String,
-    }],
+    members: [
+      {
+        name: String,
+        code: String,
+        phone: String,
+        cccdFront: String,
+        cccdBack: String,
+      },
+    ],
     name: String,
     price: Number,
     area: Number,
     paymentStatus: {
       type: String,
-      default: "not-pay"
+      default: "not-pay",
     },
     prevReadings: {
-      electricity : Number,
-      water: Number
+      electricity: Number,
+      water: Number,
     },
     furnitureStatus: [{ item: String, condition: String }],
     issues: [
@@ -36,6 +38,7 @@ const roomSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
+    rentDate: Date,
   },
   { timestamps: true }
 );

@@ -41,6 +41,7 @@ const hostelSchema = new mongoose.Schema(
       },
     ],
     memberCodes: [String],
+    deadline: Date,
   },
   {
     timestamps: true,
